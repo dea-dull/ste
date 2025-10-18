@@ -28,7 +28,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub notes-sync-${Stage}
-      CodeUri: notes/lambda/sync-note/
+      CodeUri: notes/lambda/sync-notes/
       Handler: index.handler
       Runtime: nodejs18.x
       Environment:
@@ -68,7 +68,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub notes-delete-${Stage}
-      CodeUri: notes/lambda/delete-note/
+      CodeUri: notes/lambda/delete-notes/
       Handler: index.handler
       Runtime: nodejs18.x
       Environment:
@@ -88,7 +88,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: !Sub notes-restore-${Stage}
-      CodeUri: notes/lambda/restore-note/
+      CodeUri: notes/lambda/restore-notes/
       Handler: index.handler
       Runtime: nodejs18.x
       Environment:
