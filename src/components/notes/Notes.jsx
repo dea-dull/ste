@@ -17,18 +17,12 @@ import {
 import SingleInputModal from "../../components/ui/SingleInputModal.jsx";
 import "./Notes.css";
 import { localNotesAPI } from "./db.js";
-const { randomUUID } = require('crypto');
-
-
-const AWS_API_URL = "https://your-api-url.amazonaws.com/prod";
+import { notesAPI } from "../api/notes.js"; // ← Import the API service
+import { v4 as uuidv4 } from 'uuid';
 
 function randomString(len = 6) {
   return Math.random().toString(36).substring(2, 2 + len);
 }
-
-
-
-
 
 const nowDate = () => new Date().toISOString().split("T")[0];
 
@@ -41,9 +35,8 @@ export default function NotesApp() {
   const [showTagModal, setShowTagModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
-  const [syncStatus, setSyncStatus] = useState('idle'); // 'idle', 'syncing', 'online', 'offline'
+  const [syncStatus, setSyncStatus] = useState('idle');
   const [online, setOnline] = useState(navigator.onLine);
-
 
   // --- Editor ---
   const editor = useEditor({
@@ -64,12 +57,12 @@ export default function NotesApp() {
     },
   });
 
-    // --- Online/Offline Detection ---
+  // --- Online/Offline Detection ---
   useEffect(() => {
     const handleOnline = () => {
       setOnline(true);
       setSyncStatus('online');
-      syncUnsyncedNotes(); // Sync any pending changes when coming online
+      syncUnsyncedNotes();
     };
     
     const handleOffline = () => {
@@ -89,6 +82,7 @@ export default function NotesApp() {
   // --- Load notes from local DB on mount ---
   useEffect(() => {
     loadNotesFromLocal();
+    loadNotesFromAWS(); // ← NEW: Also load from AWS on startup
   }, []);
 
   const loadNotesFromLocal = async () => {
@@ -96,7 +90,6 @@ export default function NotesApp() {
       const localNotes = await localNotesAPI.getAllNotes();
       setNotes(localNotes);
       
-      // If we have notes and none are active, set the first one as active
       if (localNotes.length > 0 && !activeNoteId) {
         setActiveNoteId(localNotes[0].id);
       }
@@ -105,7 +98,50 @@ export default function NotesApp() {
     }
   };
 
-  // --- Sync to AWS ---
+  // ← NEW: Load notes from AWS and merge with local
+  const loadNotesFromAWS = async () => {
+    if (!online) return;
+    
+    try {
+      const cloudNotes = await notesAPI.getNotes(); // ← Using API service!
+      
+      // Merge cloud notes with local notes
+      const localNotes = await localNotesAPI.getAllNotes();
+      const mergedNotes = [...localNotes];
+      
+      cloudNotes.forEach(cloudNote => {
+        const existingIndex = mergedNotes.findIndex(n => n.id === cloudNote.noteId);
+        if (existingIndex >= 0) {
+          // Cloud version is newer? Use cloud
+          if (new Date(cloudNote.updatedAt) > new Date(mergedNotes[existingIndex].updatedAt)) {
+            mergedNotes[existingIndex] = { 
+              ...cloudNote, 
+              id: cloudNote.noteId, 
+              synced: true 
+            };
+          }
+        } else {
+          // New note from cloud
+          mergedNotes.push({ 
+            ...cloudNote, 
+            id: cloudNote.noteId, 
+            synced: true 
+          });
+        }
+      });
+      
+      // Save merged notes locally
+      for (const note of mergedNotes) {
+        await localNotesAPI.saveNote(note);
+      }
+      
+      setNotes(mergedNotes);
+    } catch (error) {
+      console.error('Failed to load notes from AWS:', error);
+    }
+  };
+
+  // --- Sync to AWS (UPDATED) ---
   const syncNoteToAWS = async (note) => {
     if (!online) {
       console.log('Offline - note saved locally only');
@@ -114,23 +150,12 @@ export default function NotesApp() {
 
     try {
       setSyncStatus('syncing');
-      const response = await fetch(`${AWS_API_URL}/sync`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(note)
-      });
-
-      if (response.ok) {
-        await localNotesAPI.markAsSynced(note.id);
-        setSyncStatus('online');
-      } else {
-        throw new Error('Sync failed');
-      }
+      await notesAPI.syncNote(note); // ← Using API service!
+      await localNotesAPI.markAsSynced(note.id);
+      setSyncStatus('online');
     } catch (error) {
       console.error('Failed to sync note to AWS:', error);
-      setSyncStatus('online'); // Still show as online, but sync failed
+      setSyncStatus('online');
     }
   };
 
@@ -153,53 +178,43 @@ export default function NotesApp() {
     }
   };
 
-
-   // --- Autosave Logic (Local + Cloud) ---
+  // --- Autosave Logic (Local + Cloud) ---
   useEffect(() => {
     if (!editor) return;
     if (!activeNoteId) return;
     
-    const handleUpdate  = async () => {
+    const handleUpdate = async () => {
       setSaving(true);
       const html = editor.getHTML();
       
-      // Find the current note
       const currentNote = notes.find(n => n.id === activeNoteId);
       if (!currentNote) return;
       
-      // Update note with new content
       const updatedNote = {
         ...currentNote,
         content: html,
         updatedAt: new Date().toISOString(),
       };
       
-      // Save locally
       await localNotesAPI.saveNote(updatedNote);
-      
-      // Update React state
       setNotes(prev => prev.map(note =>
         note.id === activeNoteId ? updatedNote : note
       ));
       
-      // Sync to AWS
       await syncNoteToAWS(updatedNote);
       
       setSaving(false);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 1200);
-    }; // Debounce
+    };
     
-
-     const debouncedUpdate = debounce(handleUpdate, 600);
-
+    const debouncedUpdate = debounce(handleUpdate, 600);
     editor.on('update', debouncedUpdate);
 
     return () => {
       editor.off('update', debouncedUpdate);
-      debouncedUpdate.cancel()
+      debouncedUpdate.cancel();
     };
-
   }, [editor, notes, activeNoteId, online]);
 
   // --- Load selected note into editor ---
@@ -211,11 +226,10 @@ export default function NotesApp() {
     }
   }, [activeNoteId, editor, notes]);
 
-
   // --- Actions ---
-    const createNewNote = async () => {
+  const createNewNote = async () => {
     const title = `${nowDate()}_${randomString(8)}`;
-    const id = `note_${randomUUID()}`;
+    const id = `note_${uuidv4()}`;
     const newNote = {
       id,
       title,
@@ -228,16 +242,11 @@ export default function NotesApp() {
       synced: false
     };
     
-    // Save locally
     await localNotesAPI.saveNote(newNote);
-    
-    // Update state
     setNotes(prev => [newNote, ...prev]);
     setActiveNoteId(newNote.id);
     
     if (editor) editor.commands.setContent("");
-    
-    // Sync to AWS
     await syncNoteToAWS(newNote);
   };
 
@@ -252,7 +261,6 @@ export default function NotesApp() {
     if (action === "rename") setShowRenameModal(true);
     if (action === "delete") await handleDeleteNote();
     if (action === "pin") await updateNoteProperty('pinned', !activeNote.pinned);
-    if (action === "favorite") await updateNoteProperty('favorite', !activeNote.favorite);
     if (action === "addTag") setShowTagModal(true);
   };
 
@@ -271,12 +279,10 @@ export default function NotesApp() {
     await syncNoteToAWS(updatedNote);
   };
 
-
   const handleRename = async (value) => {
     await updateNoteProperty('title', value);
     setShowRenameModal(false);
   };
-
   
   const handleAddTag = async (value) => {
     if (!value) return;
@@ -289,24 +295,32 @@ export default function NotesApp() {
     setShowTagModal(false);
   };
 
+  // ← UPDATED: Now syncs deletion to AWS
   const handleDeleteNote = async () => {
     await localNotesAPI.deleteNote(activeNoteId);
     setNotes(prev => prev.filter(n => n.id !== activeNoteId));
-    setActiveNoteId(null);
     
-    // TODO: Also sync deletion to AWS
+    // Also delete from AWS if online
+    if (online) {
+      try {
+        await notesAPI.deleteNote(activeNoteId); // ← Using API service!
+      } catch (error) {
+        console.error('Failed to delete note from AWS:', error);
+      }
+    }
+    
+    setActiveNoteId(null);
   };
 
-  const handleRemoveTag = async (tag) =>{
+  const handleRemoveTag = async (tag) => {
     const newTags = activeNote.tags.filter(t => t !== tag);
     await updateNoteProperty('tags', newTags);
   };
    
-
   // --- Filtering (Sidebar) ---
   const filteredNotes = notes
     .filter(note => note.title.toLowerCase().includes(searchTerm.toLowerCase()))
-    .sort((a, b) => (b.pinned - a.pinned) || (b.favorite - a.favorite) || (new Date(b.updatedAt) - new Date(a.updatedAt)));
+    .sort((a, b) => (b.pinned - a.pinned) ||  (new Date(b.updatedAt) - new Date(a.updatedAt)));
 
   const activeNote = notes.find(n => n.id === activeNoteId);
 
@@ -323,12 +337,10 @@ export default function NotesApp() {
     }
   };
 
-
   return (
     <Flex className="notes-app">
       {/* Sidebar */}
       <Box className="notes-sidebar">
-
         <Group position="apart" mb="xs">
           <Text size="lg" fw={700}>Notes</Text>
           <Tooltip label={online ? "Online" : "Offline"}>
@@ -343,9 +355,7 @@ export default function NotesApp() {
           value={searchTerm}
           onChange={e => setSearchTerm(e.currentTarget.value)}
         />
-        <Group className="filter-group">
-          {/* Placeholder for future filtering */}
-        </Group>
+        
         <ScrollArea className="scroll-area">
           {filteredNotes.map(note => (
             <Box
@@ -355,7 +365,7 @@ export default function NotesApp() {
               style={{ display: 'flex', alignItems: 'center', gap: 6 }}
             >
               {note.pinned ? <IconPinnedFilled size={16} color="#e09f3e" /> : <IconPinned size={16} opacity={0.4} />}
-              {note.favorite ? <IconStarFilled size={16} color="#fbc531" /> : <IconStar size={16} opacity={0.4} />}
+          
               {!note.synced && <IconCloudUpload size={14} color="#ffa502" />}
 
               <Text size="sm" truncate="end" style={{ flex: 1 }}>{note.title}</Text>
@@ -393,7 +403,7 @@ export default function NotesApp() {
               >
                 {activeNote.title}
               </Text>
-              <Box>
+              <Box style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                 {/* Tags */}
                 {activeNote.tags && activeNote.tags.map(tag =>
                   <Badge
@@ -403,8 +413,11 @@ export default function NotesApp() {
                     style={{ marginRight: 4, cursor: "pointer" }}
                     onClick={() => handleRemoveTag(tag)}
                     title="Remove tag"
-                  >{tag}</Badge>
+                  >
+                    {tag}
+                  </Badge>
                 )}
+                
                 {/* Sync Status */}
                 {/* <Tooltip label={online ? "Online" : "Offline"}>
                   {getSyncIcon()}
@@ -414,9 +427,8 @@ export default function NotesApp() {
                 {saving ? (
                   <Loader size="xs" color="indigo" />
                 ) : saveSuccess ? (
-                  <IconCheck size={18} color="green"  />
+                  <IconCheck size={18} color="green" />
                 ) : null}
-
 
                 {/* Dropdown Menu */}
                 <Menu shadow="md" width={180} position="bottom-end" withArrow>
@@ -426,46 +438,49 @@ export default function NotesApp() {
                     </ActionIcon>
                   </Menu.Target>
                   <Menu.Dropdown>
-                    <Menu.Item leftSection={<IconEdit size={16} />} onClick={() => handleMenuAction("rename")}>Rename</Menu.Item>
+                    <Menu.Item 
+                      leftSection={<IconEdit size={16} />} 
+                      onClick={() => handleMenuAction("rename")}
+                    >
+                      Rename
+                    </Menu.Item>
                     <Menu.Item
                       leftSection={activeNote.pinned ? <IconPinnedFilled size={16} /> : <IconPinned size={16} />}
                       onClick={() => handleMenuAction("pin")}
-                    >{activeNote.pinned ? "Unpin" : "Pin"}</Menu.Item>
-                    <Menu.Item
-                      leftSection={activeNote.favorite ? <IconStarFilled size={16} /> : <IconStar size={16} />}
-                      onClick={() => handleMenuAction("favorite")}
-                    >{activeNote.favorite ? "Unfavorite" : "Favorite"}</Menu.Item>
+                    >
+                      {activeNote.pinned ? "Unpin" : "Pin"}
+                    </Menu.Item>
+    
                     <Menu.Item
                       leftSection={<IconTag size={16} />}
                       onClick={() => handleMenuAction("addTag")}
-                    >Add tag</Menu.Item>
+                    >
+                      Add tag
+                    </Menu.Item>
                     <Menu.Divider />
                     <Menu.Item
                       color="red"
                       leftSection={<IconTrash size={16} />}
                       onClick={() => handleMenuAction("delete")}
-                    >Delete</Menu.Item>
+                    >
+                      Delete
+                    </Menu.Item>
                   </Menu.Dropdown>
                 </Menu>
-              
               </Box>
             </Group>
 
-            <RichTextEditor editor={editor} styles={{
-    root: {
-      background: 'linear-gradient(90deg, #000000 0%, #001100 100%)',
-      color: 'rgba(255, 255, 255, 0.87)',
-      borderTop: '1px solid #dee2e6',
-      height: '100vh',
-    } }}  classNames={{
-    root: 'rich-text-editor',
-    toolbar: 'rich-text-editor-toolbar',
-    content: 'rich-text-editor-content'
-  }} style={{ flex: 1 }}>
-              
-      
-              <RichTextEditor.Toolbar className="rich-text-editor-toolbar" sticky >
-                <RichTextEditor.ControlsGroup >
+            <RichTextEditor 
+              editor={editor} 
+              classNames={{
+                root: 'rich-text-editor',
+                toolbar: 'rich-text-editor-toolbar',
+                content: 'rich-text-editor-content'
+              }} 
+              style={{ flex: 1 }}
+            >
+              <RichTextEditor.Toolbar className="rich-text-editor-toolbar" sticky>
+                <RichTextEditor.ControlsGroup>
                   <RichTextEditor.Bold />
                   <RichTextEditor.Italic />
                   <RichTextEditor.Underline />
@@ -503,15 +518,11 @@ export default function NotesApp() {
                   <RichTextEditor.Redo />
                 </RichTextEditor.ControlsGroup>
               </RichTextEditor.Toolbar>
-                          <RichTextEditor.Content style={{ 
-                flex: 1,
-                overflowY: "auto"
-              }}  />
+              <RichTextEditor.Content style={{ flex: 1, overflowY: "auto" }} />
             </RichTextEditor>
-            
           </>
         ) : (
-          <Flex className="empty-state" style={{ height: "100%", alignItems: "center" }}>
+          <Flex className="empty-state" style={{ height: "100%", alignItems: "center", justifyContent: "center" }}>
             <Text className="empty-state-text">Select or create a note to begin</Text>
           </Flex>
         )}
