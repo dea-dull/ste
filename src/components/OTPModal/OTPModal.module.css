@@ -9,18 +9,31 @@ body.modal-open {
 }
 
 /* Fullscreen overlay with strong blur and solid dark color */
-.overlay {
+/* .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.85); /* darker for less distraction */
+  background: rgba(0, 0, 0, 0.85);
   backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px); /* Safari support */
+  -webkit-backdrop-filter: blur(18px); 
   display: flex;
   justify-content: center;
   align-items: center;
   animation: fadeIn 0.25s ease forwards;
   z-index: 1000;
+} */
+
+
+/* OTPModal.module.css */
+.overlay {
+  position: absolute;   /* was fixed */
+  inset: 0;
+  background: rgba(0,0,0,0.60); /* or lighter for just content panel */
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
+
 
 /* Center card with extra top padding for close button space */
 .card {

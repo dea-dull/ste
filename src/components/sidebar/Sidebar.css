@@ -1,5 +1,5 @@
 .sidebar {
-  position: fixed;
+
   top: 0;
   left: 0;
   height: 100vh;
@@ -25,21 +25,30 @@
 .sidebar-logo {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 15px 10px;
+  justify-content: left;
+  width: 100%;
+  padding: 15px 20px 15px 7px;
+  margin-right: 20px ;
+  transition: all 0.2s;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
+
+
 
 .logo-icon {
   font-size: 28px;
   min-width: 28px;
+  color: gold;
   text-align: center;
+ 
 }
 
 .logo-text {
   font-weight: bold;
+  color: gold;
   font-size: 16px;
   white-space: nowrap;
+  padding-left: 15px;
 }
 
 /* Navigation Items */
@@ -68,8 +77,10 @@
   width: 100%;
 }
 
+
 .menu-item:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05); /* faint white hover */
+  color: #8ef58a;
 }
 
 .icon {
@@ -107,6 +118,7 @@
 /* Settings */
 .sidebar-settings {
   padding: 10px;
+  width: 100%;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
@@ -115,8 +127,11 @@
   display: flex;
   justify-content: flex-end;
   padding: 10px;
+  margin-top: 1rem;
+  width: 100%;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
+ 
 
 .toggle-btn {
   background: none;
@@ -124,6 +139,8 @@
   cursor: pointer;
   color: white;
   padding: 8px;
+
+  margin-right: -8px;
   border-radius: 4px;
   transition: background 0.2s;
 }
@@ -144,19 +161,17 @@
 
 /* User Profile */
 .sidebar-footer {
-  padding: 10px;
+  padding: 12px 8px;
+  width: 100%;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 /* CLICKABLE USER AREA STYLES */
 .sidebar-user-clickable {
   display: flex;
-  align-items: center;
+  align-items: left;
   gap: 15px;
   padding: 12px;
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
   cursor: pointer;
   transition: all 0.3s ease;
 }
@@ -168,15 +183,8 @@
 
 
 .sidebar-user-clickable:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(134, 129, 129, 0.15);
   transform: translateY(-1px);
-}
-
-.dropdown-chevron {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.6);
-  transition: transform 0.3s ease;
-  margin-left: auto;
 }
 
 /* User component styles inside clickable area */
@@ -213,14 +221,25 @@
 .sidebar-user-description {
   font-size: 13px !important;
   color: rgba(255, 255, 255, 0.8) !important;
-  margin: 0 !important;
+  margin-top: 10px !important;
+  padding-right: 10px;
   white-space: nowrap !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
   line-height: 1.2 !important;
   font-weight: 400 !important;
 }
+.three-dots-menu{
+  margin-left: auto; /* push to the right */
+  font-size: 16px;
+  padding-right: 4px;
+  cursor: pointer;
+  transition: color 0.3s ease;
+}
 
+.three-dots-menu:hover {
+  color: gold;
+}
 /* Remove list dots/bullets from user component */
 .sidebar-user-base::before,
 .sidebar-user-wrapper::before,
@@ -269,7 +288,11 @@
   font-size: 12px;
   line-height: 1.4;
 }
-
+.icons-tooltip{
+  background: rgba(40, 40, 40, 0.95);
+  padding: 5px 10px;
+  border-radius: 6px;
+}
 .user-tooltip-content div:first-child {
   font-weight: 600;
   color: white;

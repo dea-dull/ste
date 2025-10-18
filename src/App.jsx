@@ -11,7 +11,10 @@ import Dashboard from './components/dashboard/Dashboard.jsx';
 import { Toaster } from "sonner";
 import "bootstrap-icons/font/bootstrap-icons.css";
 import amplifyOutputs from './amplify_outputs.json';
-
+import Layout from './components/layout/Layout.jsx';
+import '@mantine/core/styles.css';
+// Must come after core styles:
+import '@mantine/tiptap/styles.css';
 // ✅ FIXED: Use the correct Amplify v6 configuration structure
 try {
   Amplify.configure(amplifyOutputs)
@@ -34,7 +37,9 @@ function App() {
           <Route path="/signup" element={<SignUp />} />
           <Route path="/verify" element={<VerificationResult />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
-         <Route path="/dashboard" element={<Dashboard />} />  
+
+          {/* Protected routes that require Sidebar */}
+          <Route path="/*" element={<Layout />} /> 
       </Routes>
       </Router>
     </MantineProvider>

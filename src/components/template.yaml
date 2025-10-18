@@ -1,0 +1,135 @@
+# template.yml
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Parameters:
+  Stage:
+    Type: String
+    Default: dev
+
+Resources:
+  NotesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub Notes-${Stage}
+      AttributeDefinitions:
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: noteId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: userId
+          KeyType: HASH
+        - AttributeName: noteId
+          KeyType: RANGE
+      BillingMode: PAY_PER_REQUEST
+
+  SyncNoteFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub notes-sync-${Stage}
+      CodeUri: notes/lambda/sync-note/
+      Handler: index.handler
+      Runtime: nodejs18.x
+      Environment:
+        Variables:
+          NOTES_TABLE: !Ref NotesTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref NotesTable
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /sync
+            Method: post
+
+  GetNotesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub notes-get-${Stage}
+      CodeUri: notes/lambda/get-notes/
+      Handler: index.handler
+      Runtime: nodejs18.x
+      Environment:
+        Variables:
+          NOTES_TABLE: !Ref NotesTable
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref NotesTable
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /notes
+            Method: get
+
+  DeleteNoteFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub notes-delete-${Stage}
+      CodeUri: notes/lambda/delete-note/
+      Handler: index.handler
+      Runtime: nodejs18.x
+      Environment:
+        Variables:
+          NOTES_TABLE: !Ref NotesTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref NotesTable
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /notes/{id}
+            Method: delete
+
+  RestoreNoteFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub notes-restore-${Stage}
+      CodeUri: notes/lambda/restore-note/
+      Handler: index.handler
+      Runtime: nodejs18.x
+      Environment:
+        Variables:
+          NOTES_TABLE: !Ref NotesTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref NotesTable
+      Events:
+        Api:
+          Type: Api
+          Properties:
+            Path: /notes/{id}/restore
+            Method: post
+
+  CleanupNotesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub notes-cleanup-${Stage}
+      CodeUri: notes/lambda/cleanup-notes/
+      Handler: index.handler
+      Runtime: nodejs18.x
+      Environment:
+        Variables:
+          NOTES_TABLE: !Ref NotesTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref NotesTable
+      Events:
+        DailyCleanup:
+          Type: Schedule
+          Properties:
+            Schedule: rate(1 day)
+
+Outputs:
+  ApiUrl:
+    Description: "API Gateway endpoint URL"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/${Stage}/"
+    
+  NotesTableName:
+    Description: "Notes DynamoDB table name"
+    Value: !Ref NotesTable
+
+    

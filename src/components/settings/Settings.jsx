@@ -1,17 +1,16 @@
-// Dashboard.jsx
+
 import { Paper, Text } from '@mantine/core';
 
 
-const Dashboard = () => {
+const Settings = () => {
   return (
     <div >
-      {/* Sidebar */}
-
+     
 
 
 
         <Text>
-          Welcome to your dashboard! You can add your main content here.
+          Welcome to your Settings page! 
         </Text>
         {/* Add more sections/components here */}
 
@@ -19,4 +18,4 @@ const Dashboard = () => {
   );
 };
 
-export default Dashboard;
+export default Settings;
