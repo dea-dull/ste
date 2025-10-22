@@ -1,5 +1,8 @@
-const AWS = require('aws-sdk');
-const dynamo = new AWS.DynamoDB.DocumentClient();
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocumentClient, UpdateCommand } from "@aws-sdk/lib-dynamodb";
+
+const client = new DynamoDBClient({});
+const dynamo = DynamoDBDocumentClient.from(client);
 
 const headers = {
   'Access-Control-Allow-Origin': '*',
@@ -7,7 +10,7 @@ const headers = {
   'Access-Control-Allow-Headers': 'Content-Type'
 };
 
-exports.handler = async (event) => {
+export const handler = async (event) => {
   try {
     // Handle preflight
     if (event.httpMethod === 'OPTIONS') {
@@ -49,7 +52,8 @@ exports.handler = async (event) => {
       ReturnValues: 'ALL_NEW'
     };
 
-    const result = await dynamo.update(params).promise();
+    // SDK v3 style - use UpdateCommand
+    const result = await dynamo.send(new UpdateCommand(params));
 
     return {
       statusCode: 200,
@@ -61,7 +65,8 @@ exports.handler = async (event) => {
       })
     };
   } catch (error) {
-    if (error.code === 'ConditionalCheckFailedException') {
+    // Note: In SDK v3, error names are the same but accessed via error.name
+    if (error.name === 'ConditionalCheckFailedException') {
       return {
         statusCode: 404,
         headers,
@@ -77,4 +82,3 @@ exports.handler = async (event) => {
     };
   }
 };
-

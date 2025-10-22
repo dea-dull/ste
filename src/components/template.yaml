@@ -1,4 +1,4 @@
-# template.yml
+# template.yml  dev api stage didnt create so will need to be created manually
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 
@@ -8,10 +8,21 @@ Parameters:
     Default: dev
 
 Resources:
+
+  AwsSdkV3Layer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub aws-sdk-v3-${Stage}
+      Description: AWS SDK v3 for DynamoDB operations
+      ContentUri: ../../layers/aws-sdk-v3-layer/  # Adjusted path for your structure
+      CompatibleRuntimes:
+        - nodejs18.x
+      RetentionPolicy: Retain
+
   NotesTable:
     Type: AWS::DynamoDB::Table
     Properties:
-      TableName: !Sub Notes-${Stage}
+      TableName: !Sub Starage-App-Notes-${Stage}
       AttributeDefinitions:
         - AttributeName: userId
           AttributeType: S
@@ -31,6 +42,8 @@ Resources:
       CodeUri: notes/lambda/sync-notes/
       Handler: index.handler
       Runtime: nodejs18.x
+      Layers:
+        - !Ref AwsSdkV3Layer  # ← Attach layer here
       Environment:
         Variables:
           NOTES_TABLE: !Ref NotesTable
@@ -51,6 +64,8 @@ Resources:
       CodeUri: notes/lambda/get-notes/
       Handler: index.handler
       Runtime: nodejs18.x
+      Layers:
+        - !Ref AwsSdkV3Layer  # ← Attach layer here
       Environment:
         Variables:
           NOTES_TABLE: !Ref NotesTable
@@ -71,6 +86,8 @@ Resources:
       CodeUri: notes/lambda/delete-notes/
       Handler: index.handler
       Runtime: nodejs18.x
+      Layers:
+        - !Ref AwsSdkV3Layer  # ← Attach layer here
       Environment:
         Variables:
           NOTES_TABLE: !Ref NotesTable
@@ -91,6 +108,8 @@ Resources:
       CodeUri: notes/lambda/restore-notes/
       Handler: index.handler
       Runtime: nodejs18.x
+      Layers:
+        - !Ref AwsSdkV3Layer  # ← Attach layer here
       Environment:
         Variables:
           NOTES_TABLE: !Ref NotesTable
@@ -111,6 +130,8 @@ Resources:
       CodeUri: notes/lambda/cleanup-notes/
       Handler: index.handler
       Runtime: nodejs18.x
+      Layers:
+        - !Ref AwsSdkV3Layer  # ← Attach layer here
       Environment:
         Variables:
           NOTES_TABLE: !Ref NotesTable

@@ -1,5 +1,8 @@
-const AWS = require('aws-sdk');
-const dynamo = new AWS.DynamoDB.DocumentClient();
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocumentClient, QueryCommand } from "@aws-sdk/lib-dynamodb";
+
+const client = new DynamoDBClient({});
+const dynamo = DynamoDBDocumentClient.from(client);
 
 const headers = {
   'Access-Control-Allow-Origin': '*',
@@ -7,7 +10,7 @@ const headers = {
   'Access-Control-Allow-Headers': 'Content-Type'
 };
 
-exports.handler = async (event) => {
+export const handler = async (event) => {
   try {
     // Handle preflight
     if (event.httpMethod === 'OPTIONS') {
@@ -56,7 +59,8 @@ exports.handler = async (event) => {
       params.FilterExpression = filterExpressions.join(' AND ');
     }
 
-    const result = await dynamo.query(params).promise();
+    // SDK v3 style - no .promise() needed
+    const result = await dynamo.send(new QueryCommand(params));
 
     return {
       statusCode: 200,
@@ -70,5 +74,5 @@ exports.handler = async (event) => {
       headers,
       body: JSON.stringify({ error: 'Internal server error' })
     };
-  }
+  };
 };

@@ -11,7 +11,7 @@ export const notesAPI = {
    */
   async syncNote(note) {
     try {
-      const response = await fetch(`${API_BASE_URL}/sync`, {
+      const response = await fetch(`${API_BASE_URL}/notes/sync`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
